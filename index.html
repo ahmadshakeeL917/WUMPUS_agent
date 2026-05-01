@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Wumpus Logic Agent — 24F-0543</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@600;900&display=swap');
+
+  :root {
+    --bg:      #070d14;
+    --panel:   #0d1825;
+    --border:  #1a3050;
+    --accent:  #00ffe5;
+    --accent2: #ff6b35;
+    --safe:    #00c97a;
+    --danger:  #ff2d55;
+    --unknown: #1e3050;
+    --visited: #0a4066;
+    --text:    #c8e0f4;
+    --dim:     #4a6a8a;
+    --gold:    #ffd700;
+    --wumpus:  #9b59b6;
+    --glow:    0 0 18px rgba(0,255,229,0.35);
+  }
+
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+  body {
+    font-family: 'Share Tech Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+  }
+
+  header { width:100%; max-width:960px; text-align:center; margin-bottom:28px; }
+  header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.4rem,4vw,2.6rem);
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    letter-spacing: 2px;
+  }
+  header p { font-size:0.78rem; color:var(--dim); margin-top:4px; letter-spacing:1px; }
+  header .student-info {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 14px;
+    letter-spacing: 1px;
+    opacity: 0.75;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 960px;
+    display: grid;
+    grid-template-columns: 1fr 270px;
+    gap: 20px;
+  }
+  @media(max-width:700px){ .app { grid-template-columns:1fr; } }
+
+  .grid-section { display:flex; flex-direction:column; gap:14px; }
+
+  #grid-wrap {
+    display: inline-grid;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: var(--glow);
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .cell {
+    width: 58px; height: 58px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 1.35rem;
+    position: relative;
+    transition: all 0.22s ease;
+    background: var(--unknown);
+    cursor: default;
+    user-select: none;
+  }
+  .cell.visited    { background:var(--visited); border-color:#1e5080; }
+  .cell.safe-cell  { background:#0d3d26; border-color:var(--safe); box-shadow:0 0 8px rgba(0,201,122,0.3); }
+  .cell.agent      { border-color:var(--accent); box-shadow:0 0 16px rgba(0,255,229,0.7); }
+  .cell.pit-cell   { background:#3d0d0d; border-color:var(--danger); }
+  .cell.wumpus-cell{ background:#250d3a; border-color:var(--wumpus); }
+  .cell.gold-cell  { background:#3d3000; border-color:var(--gold); }
+  .cell-coord { font-size:0.52rem; color:var(--dim); position:absolute; top:3px; left:4px; }
+
+  #message-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    min-height: 44px;
+    line-height: 1.6;
+  }
+
+  .controls { display:flex; gap:10px; flex-wrap:wrap; }
+  .btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem; font-weight:600;
+    letter-spacing: 1px;
+    padding: 10px 20px;
+    border: none; border-radius:5px;
+    cursor: pointer; transition:all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn-primary   { background:var(--accent); color:var(--bg); box-shadow:0 0 14px rgba(0,255,229,0.4); }
+  .btn-primary:hover { box-shadow:0 0 24px rgba(0,255,229,0.7); transform:translateY(-1px); }
+  .btn-secondary { background:transparent; color:var(--accent2); border:1px solid var(--accent2); }
+  .btn-secondary:hover { background:rgba(255,107,53,0.12); }
+  .btn-auto      { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .btn-auto:hover{ background:rgba(0,255,229,0.08); }
+  .btn:disabled  { opacity:0.38; cursor:not-allowed; transform:none !important; box-shadow:none !important; }
+
+  .sidebar { display:flex; flex-direction:column; gap:16px; }
+
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; }
+  .panel h3 {
+    font-family:'Orbitron',sans-serif; font-size:0.68rem;
+    color:var(--accent); letter-spacing:2px;
+    margin-bottom:12px; text-transform:uppercase;
+  }
+
+  .metric { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--border); font-size:0.8rem; }
+  .metric:last-child { border-bottom:none; }
+  .metric-val { font-family:'Orbitron',sans-serif; color:var(--accent); font-size:0.95rem; }
+
+  .config-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:0.8rem; }
+  .config-row label { color:var(--dim); }
+  .config-row input[type=range] { width:90px; accent-color:var(--accent); }
+  .config-row span { color:var(--text); width:20px; text-align:right; }
+
+  .legend-item { display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:0.76rem; color:var(--dim); }
+  .swatch { width:15px; height:15px; border-radius:3px; border:1px solid var(--border); flex-shrink:0; }
+
+  #kb-log { max-height:130px; overflow-y:auto; font-size:0.68rem; color:var(--dim); line-height:1.8; }
+  #kb-log div { border-bottom:1px solid #101c2a; padding:1px 0; }
+  #kb-log div:last-child { color:var(--accent); }
+
+  footer {
+    margin-top: 32px;
+    font-size: 0.65rem;
+    color: var(--border);
+    text-align: center;
+    letter-spacing: 1px;
+    line-height: 1.8;
+  }
+
+  #overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(7,13,20,0.9);
+    z-index:99; align-items:center; justify-content:center;
+    flex-direction:column; gap:20px; text-align:center;
+    backdrop-filter:blur(5px);
+  }
+  #overlay.show { display:flex; }
+  #overlay h2 { font-family:'Orbitron',sans-serif; font-size:2.4rem; color:var(--accent); text-shadow:var(--glow); }
+  #overlay p  { color:var(--text); font-size:0.9rem; max-width:420px; line-height:1.6; }
+
+  .percept-badge {
+    display:inline-block; font-size:0.65rem; padding:2px 7px;
+    border-radius:20px; margin-right:4px; font-family:'Orbitron',sans-serif;
+    letter-spacing:1px;
+  }
+  .pb-breeze { background:#0a2a40; border:1px solid #1a7aaa; color:#5ac8fa; }
+  .pb-stench { background:#2a1a0a; border:1px solid #aa5a1a; color:#fa9a5a; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ WUMPUS LOGIC AGENT</h1>
+  <p>Knowledge-Based Agent · Propositional Logic · Resolution Refutation · CNF Inference Engine</p>
+  <span class="student-info">Ahmad · 24F-0543 · CS-4B · AI-2002 · FAST-NUCES CF Campus</span>
+</header>
+
+<div class="app">
+
+  <!-- LEFT -->
+  <div class="grid-section">
+    <div id="grid-wrap"></div>
+    <div id="message-bar">Agent ready. Press <b>Step</b> or <b>Auto-Run</b>.</div>
+    <div class="controls">
+      <button class="btn btn-primary"   id="btn-step" onclick="step()">▶ Step</button>
+      <button class="btn btn-auto"      id="btn-auto" onclick="toggleAuto()">⏩ Auto-Run</button>
+      <button class="btn btn-secondary" onclick="resetGame()">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="sidebar">
+
+    <div class="panel">
+      <h3>📊 Real-Time Metrics</h3>
+      <div class="metric"><span>Inference Steps</span><span class="metric-val" id="m-infer">0</span></div>
+      <div class="metric"><span>Cells Visited</span> <span class="metric-val" id="m-vis">0</span></div>
+      <div class="metric"><span>Safe Confirmed</span><span class="metric-val" id="m-safe">0</span></div>
+      <div class="metric"><span>Agent Position</span><span class="metric-val" id="m-pos">(0,0)</span></div>
+      <div class="metric"><span>Active Percepts</span><span id="m-percepts" style="font-size:0.7rem">—</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>⚙ Configuration</h3>
+      <div class="config-row">
+        <label>Rows</label>
+        <input type="range" id="cfg-rows" min="3" max="8" value="4"
+               oninput="document.getElementById('lbl-r').textContent=this.value">
+        <span id="lbl-r">4</span>
+      </div>
+      <div class="config-row">
+        <label>Cols</label>
+        <input type="range" id="cfg-cols" min="3" max="8" value="4"
+               oninput="document.getElementById('lbl-c').textContent=this.value">
+        <span id="lbl-c">4</span>
+      </div>
+      <div class="config-row">
+        <label>Pits</label>
+        <input type="range" id="cfg-pits" min="1" max="8" value="3"
+               oninput="document.getElementById('lbl-p').textContent=this.value">
+        <span id="lbl-p">3</span>
+      </div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:6px" onclick="resetGame()">Apply & Restart</button>
+    </div>
+
+    <div class="panel">
+      <h3>🧠 KB Inference Log</h3>
+      <div id="kb-log"><div>Awaiting percepts…</div></div>
+    </div>
+
+    <div class="panel">
+      <h3>🗺 Legend</h3>
+      <div class="legend-item"><div class="swatch" style="background:#0d3d26;border-color:#00c97a"></div>Safe (KB Proven)</div>
+      <div class="legend-item"><div class="swatch" style="background:#0a4066;border-color:#1e5080"></div>Visited</div>
+      <div class="legend-item"><div class="swatch" style="background:#1e3050"></div>Unknown</div>
+      <div class="legend-item"><div class="swatch" style="background:#3d0d0d;border-color:#ff2d55"></div>Pit (Revealed)</div>
+      <div class="legend-item"><div class="swatch" style="background:#250d3a;border-color:#9b59b6"></div>Wumpus (Revealed)</div>
+      <div class="legend-item"><div class="swatch" style="background:#3d3000;border-color:#ffd700"></div>Gold</div>
+      <div class="legend-item" style="margin-top:4px">🤖 Agent &nbsp;|&nbsp; 💰 Gold &nbsp;|&nbsp; 🕳 Pit &nbsp;|&nbsp; 👾 Wumpus</div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  AI-2002 · Assignment 6 · Spring 2026 · FAST-NUCES Chiniot-Faisalabad Campus<br>
+  Ahmad · Student ID: 24F-0543 · Section: CS-4B
+</footer>
+
+<!-- OVERLAY -->
+<div id="overlay">
+  <h2 id="ov-title">GAME OVER</h2>
+  <p  id="ov-msg"></p>
+  <button class="btn btn-primary" onclick="resetGame();document.getElementById('overlay').classList.remove('show')">↺ Play Again</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  KNOWLEDGE BASE  —  Propositional Logic + Resolution CNF
+// ══════════════════════════════════════════════════════════
+
+class KnowledgeBase {
+  constructor() { this.clauses = []; this.inferenceSteps = 0; }
+
+  reset() { this.clauses = []; this.inferenceSteps = 0; }
+
+  tell(clause) {
+    const key = [...clause].sort().join('|');
+    if (!this.clauses.some(c => this._key(c) === key))
+      this.clauses.push([...clause]);
+  }
+
+  _key(c) { return [...c].sort().join('|'); }
+  _negate(lit) { return lit.startsWith('-') ? lit.slice(1) : '-' + lit; }
+
+  _neighbors(r, c, rows, cols) {
+    return [[-1,0],[1,0],[0,-1],[0,1]]
+      .map(([dr,dc]) => [r+dr, c+dc])
+      .filter(([nr,nc]) => nr>=0 && nr<rows && nc>=0 && nc<cols);
+  }
+
+  addPerceptRules(r, c, breeze, stench, rows, cols) {
+    const nbrs = this._neighbors(r, c, rows, cols);
+
+    if (breeze) {
+      this.tell([`B_${r}_${c}`]);
+      // Breeze <=> at least one neighbor pit (left side of biconditional in CNF)
+      this.tell(nbrs.map(([nr,nc]) => `P_${nr}_${nc}`));
+    } else {
+      // No breeze → no pit in any neighbor (unit clauses)
+      nbrs.forEach(([nr,nc]) => this.tell([`-P_${nr}_${nc}`]));
+    }
+
+    if (stench) {
+      this.tell([`S_${r}_${c}`]);
+      this.tell(nbrs.map(([nr,nc]) => `W_${nr}_${nc}`));
+    } else {
+      nbrs.forEach(([nr,nc]) => this.tell([`-W_${nr}_${nc}`]));
+    }
+
+    // Current cell is definitely safe (visited = safe)
+    this.tell([`-P_${r}_${c}`]);
+    this.tell([`-W_${r}_${c}`]);
+  }
+
+  // Resolution Refutation: prove literal by negating it and finding contradiction (⊥)
+  prove(goalLiteral) {
+    const negGoal = this._negate(goalLiteral);
+    const working = this.clauses.map(c => [...c]);
+    working.push([negGoal]);
+    const seen = new Set(working.map(c => this._key(c)));
+
+    let i = 0;
+    while (i < working.length && i < 3000) {
+      const ci = working[i];
+      for (let j = 0; j < i; j++) {
+        const cj = working[j];
+        const resolvents = this._resolve(ci, cj);
+        this.inferenceSteps++;
+        for (const res of resolvents) {
+          if (res.length === 0) return true;  // ⊥ reached — proved!
+          const k = this._key(res);
+          if (!seen.has(k)) { seen.add(k); working.push(res); }
+        }
+      }
+      i++;
+    }
+    return false;
+  }
+
+  _resolve(c1, c2) {
+    const resolvents = [];
+    for (const lit of c1) {
+      const neg = this._negate(lit);
+      if (c2.includes(neg)) {
+        const newClause = [...c1.filter(l=>l!==lit), ...c2.filter(l=>l!==neg)];
+        const unique = [...new Set(newClause)];
+        const isTaut = unique.some(l => unique.includes(this._negate(l)));
+        if (!isTaut) resolvents.push(unique);
+      }
+    }
+    return resolvents;
+  }
+
+  // ASK: is cell (r,c) proven safe? Prove both ~PIT and ~WUMPUS via refutation
+  askSafe(r, c) {
+    return this.prove(`-P_${r}_${c}`) && this.prove(`-W_${r}_${c}`);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  WUMPUS WORLD ENVIRONMENT
+// ══════════════════════════════════════════════════════════
+
+class WumpusWorld {
+  constructor(rows=4, cols=4, numPits=3) {
+    this.rows = rows; this.cols = cols; this.numPits = numPits;
+    this.kb = new KnowledgeBase();
+    this.reset();
+  }
+
+  reset() {
+    this.kb.reset();
+    this.agent = [0,0];
+    this.visited = new Set();
+    this.safeConfirmed = new Set();
+    this.gameOver = false;
+    this.won = false;
+    this.message = 'Agent initialised. KB empty. Ready to explore.';
+    this.currentPercepts = [];
+
+    const all = [];
+    for (let r=0; r<this.rows; r++)
+      for (let c=0; c<this.cols; c++) all.push([r,c]);
+
+    const shuffle = arr => arr.sort(()=>Math.random()-0.5);
+    const pool = shuffle(all.filter(([r,c])=>!(r===0&&c===0)));
+
+    this.gold   = pool[0];
+    this.wumpus = pool[1];
+    this.pits   = new Set(pool.slice(2, 2+this.numPits).map(([r,c])=>`${r},${c}`));
+
+    this._visit(0, 0);
+  }
+
+  _key([r,c]) { return `${r},${c}`; }
+
+  _neighbors(r, c) {
+    return [[-1,0],[1,0],[0,-1],[0,1]]
+      .map(([dr,dc])=>[r+dr,c+dc])
+      .filter(([nr,nc])=>nr>=0&&nr<this.rows&&nc>=0&&nc<this.cols);
+  }
+
+  _visit(r, c) {
+    this.visited.add(this._key([r,c]));
+    this.safeConfirmed.add(this._key([r,c]));
+    const nbrs = this._neighbors(r, c);
+    const breeze = nbrs.some(([nr,nc]) => this.pits.has(this._key([nr,nc])));
+    const stench = nbrs.some(([nr,nc]) => nr===this.wumpus[0]&&nc===this.wumpus[1]);
+    this.kb.addPerceptRules(r, c, breeze, stench, this.rows, this.cols);
+    this.currentPercepts = [];
+    if (breeze) this.currentPercepts.push('Breeze');
+    if (stench) this.currentPercepts.push('Stench');
+    return { breeze, stench };
+  }
+
+  step() {
+    if (this.gameOver) return;
+    const [r, c] = this.agent;
+
+    if (r===this.gold[0] && c===this.gold[1]) {
+      this.gameOver = true; this.won = true;
+      this.message = '🏆 Agent found the GOLD! Victory!'; return;
+    }
+
+    const nbrs = this._neighbors(r, c);
+    const unvisited = nbrs.filter(([nr,nc]) => !this.visited.has(this._key([nr,nc])));
+
+    // ASK KB: find proven-safe unvisited cell
+    let chosen = null;
+    for (const [nr,nc] of unvisited) {
+      if (this.kb.askSafe(nr, nc)) {
+        this.safeConfirmed.add(this._key([nr,nc]));
+        chosen = [nr,nc]; break;
+      }
+    }
+
+    // Fallback: revisit safe visited neighbor (greedy toward gold)
+    if (!chosen) {
+      const visitedNbrs = nbrs.filter(([nr,nc]) => this.visited.has(this._key([nr,nc])));
+      if (visitedNbrs.length) {
+        const dist = ([nr,nc]) => Math.abs(nr-this.gold[0])+Math.abs(nc-this.gold[1]);
+        chosen = visitedNbrs.sort((a,b)=>dist(a)-dist(b))[0];
+      }
+    }
+
+    if (!chosen) {
+      this.gameOver = true;
+      this.message = '🚫 Agent stuck — no provably safe moves available.'; return;
+    }
+
+    this.agent = chosen;
+    const [nr,nc] = chosen;
+
+    if (this.pits.has(this._key([nr,nc]))) {
+      this.gameOver = true;
+      this.message = `💀 Agent fell into a PIT at (${nr},${nc})! Game Over.`; return;
+    }
+    if (nr===this.wumpus[0] && nc===this.wumpus[1]) {
+      this.gameOver = true;
+      this.message = `💀 Wumpus devoured the agent at (${nr},${nc})! Game Over.`; return;
+    }
+    if (nr===this.gold[0] && nc===this.gold[1]) {
+      this._visit(nr, nc);
+      this.gameOver = true; this.won = true;
+      this.message = '🏆 Agent found the GOLD! Victory!'; return;
+    }
+
+    this._visit(nr, nc);
+    const pStr = this.currentPercepts.length ? this.currentPercepts.join(', ') : 'None';
+    this.message = `Moved → (${nr},${nc}) | Percepts: ${pStr} | KB Steps: ${this.kb.inferenceSteps}`;
+  }
+
+  getState() {
+    const grid = [];
+    for (let r=0; r<this.rows; r++) {
+      const row = [];
+      for (let c=0; c<this.cols; c++) {
+        const k = this._key([r,c]);
+        row.push({
+          r, c,
+          visited:  this.visited.has(k),
+          safe:     this.safeConfirmed.has(k),
+          agent:    r===this.agent[0]&&c===this.agent[1],
+          gold:     r===this.gold[0]&&c===this.gold[1]&&(this.won||this.gameOver),
+          pit:      this.pits.has(k)&&this.gameOver,
+          wumpus:   r===this.wumpus[0]&&c===this.wumpus[1]&&this.gameOver,
+        });
+      }
+      grid.push(row);
+    }
+    return {
+      grid,
+      rows: this.rows, cols: this.cols,
+      agent: this.agent,
+      gameOver: this.gameOver, won: this.won,
+      message: this.message,
+      inferenceSteps: this.kb.inferenceSteps,
+      visitedCount: this.visited.size,
+      safeCount: this.safeConfirmed.size,
+      percepts: this.currentPercepts,
+    };
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  UI CONTROLLER
+// ══════════════════════════════════════════════════════════
+
+let world = new WumpusWorld();
+let autoTimer = null;
+let kbLog = [];
+
+function step() {
+  world.step();
+  render(world.getState());
+}
+
+function toggleAuto() {
+  if (autoTimer) {
+    clearInterval(autoTimer); autoTimer = null;
+    document.getElementById('btn-auto').textContent = '⏩ Auto-Run';
+    document.getElementById('btn-step').disabled = false;
+  } else {
+    document.getElementById('btn-auto').textContent = '⏸ Pause';
+    document.getElementById('btn-step').disabled = true;
+    autoTimer = setInterval(() => {
+      world.step();
+      const s = world.getState();
+      render(s);
+      if (s.gameOver) {
+        clearInterval(autoTimer); autoTimer = null;
+        document.getElementById('btn-auto').textContent = '⏩ Auto-Run';
+        document.getElementById('btn-step').disabled = false;
+      }
+    }, 420);
+  }
+}
+
+function resetGame() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  document.getElementById('btn-auto').textContent = '⏩ Auto-Run';
+  document.getElementById('btn-step').disabled = false;
+  document.getElementById('overlay').classList.remove('show');
+  kbLog = [];
+  const rows = +document.getElementById('cfg-rows').value;
+  const cols = +document.getElementById('cfg-cols').value;
+  const pits = Math.min(+document.getElementById('cfg-pits').value, rows*cols-3);
+  world = new WumpusWorld(rows, cols, pits);
+  render(world.getState());
+}
+
+function render(s) {
+  // Grid
+  const wrap = document.getElementById('grid-wrap');
+  wrap.style.gridTemplateColumns = `repeat(${s.cols}, 58px)`;
+  wrap.innerHTML = '';
+  for (let r=0; r<s.rows; r++) {
+    for (let c=0; c<s.cols; c++) {
+      const cell = s.grid[r][c];
+      const div = document.createElement('div');
+      div.className = 'cell';
+      if (cell.safe && !cell.pit && !cell.wumpus) div.classList.add('safe-cell');
+      if (cell.visited) div.classList.add('visited');
+      if (cell.agent)   div.classList.add('agent');
+      if (cell.pit)     div.classList.add('pit-cell');
+      if (cell.wumpus)  div.classList.add('wumpus-cell');
+      if (cell.gold)    div.classList.add('gold-cell');
+
+      let emoji = '';
+      if      (cell.agent)  emoji = '🤖';
+      else if (cell.gold)   emoji = '💰';
+      else if (cell.pit)    emoji = '🕳';
+      else if (cell.wumpus) emoji = '👾';
+      else if (cell.safe && !cell.visited) emoji = '<span style="font-size:.7rem;color:#00c97a">✓</span>';
+
+      div.innerHTML = `<span class="cell-coord">${r},${c}</span>${emoji}`;
+      wrap.appendChild(div);
+    }
+  }
+
+  document.getElementById('message-bar').innerHTML = s.message;
+  document.getElementById('m-infer').textContent = s.inferenceSteps;
+  document.getElementById('m-vis').textContent   = s.visitedCount;
+  document.getElementById('m-safe').textContent  = s.safeCount;
+  document.getElementById('m-pos').textContent   = `(${s.agent[0]},${s.agent[1]})`;
+
+  const pb = document.getElementById('m-percepts');
+  if (s.percepts.length) {
+    pb.innerHTML = s.percepts.map(p =>
+      `<span class="percept-badge ${p==='Breeze'?'pb-breeze':'pb-stench'}">${p}</span>`
+    ).join('');
+  } else {
+    pb.innerHTML = '<span style="color:var(--dim)">None</span>';
+  }
+
+  if (s.visitedCount > 0 && s.message !== 'Agent initialised. KB empty. Ready to explore.') {
+    kbLog.push(`[Step ${s.visitedCount}] ${s.message}`);
+    if (kbLog.length > 40) kbLog.shift();
+    const log = document.getElementById('kb-log');
+    log.innerHTML = kbLog.map(l=>`<div>${l}</div>`).join('');
+    log.scrollTop = log.scrollHeight;
+  }
+
+  if (s.gameOver) {
+    setTimeout(() => {
+      document.getElementById('ov-title').textContent = s.won ? '🏆 VICTORY!' : '💀 DEFEATED';
+      document.getElementById('ov-title').style.color = s.won ? 'var(--gold)' : 'var(--danger)';
+      document.getElementById('ov-msg').textContent = s.message;
+      document.getElementById('overlay').classList.add('show');
+    }, 700);
+  }
+}
+
+render(world.getState());
+</script>
+</body>
+</html>
