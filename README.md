@@ -8,10 +8,7 @@
 A web-based Knowledge-Based Agent that navigates a **Wumpus World** grid using **Propositional Logic** and **Resolution Refutation** to deduce safe cells before moving.
 
 ## 🔗 Live Demo
-
-👉[ **[Live on Vercel](#)** ← paste your Vercel URL here after deploy
-](https://wumpus-agent-d6jzv74m3-ahmadshakeel917s-projects.vercel.app)
----
+(https://wumpus-agent-d6jzv74m3-ahmadshakeel917s-projects.vercel.app)
 
 ## 🚀 Features
 
