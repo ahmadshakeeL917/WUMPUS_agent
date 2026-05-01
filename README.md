@@ -1,11 +1,7 @@
 # ⚡ Wumpus Logic Agent
 
-**AI-2002 — Artificial Intelligence | Assignment 6 | Spring 2026**
-**FAST-NUCES Chiniot-Faisalabad Campus**
+> Student: Ahmad
 
-> Student: Ahmad | ID: 24F-0543 | Section: CS-4B
-
----
 
 ## 🧠 Overview
 
@@ -29,7 +25,6 @@ A web-based Knowledge-Based Agent that navigates a **Wumpus World** grid using *
 | Auto-Run Mode | Agent runs autonomously step by step |
 | Game Over Overlay | Win/Lose detection with replay |
 
----
 
 ## 🤖 How the Agent Works
 
@@ -100,5 +95,3 @@ git push -u origin main
 - Inference Rules (Modus Ponens, Unit Resolution)
 
 ---
-
-*AI-2002 · Assignment 6 · Spring 2026 · FAST-NUCES CF Campus*
